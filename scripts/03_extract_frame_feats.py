@@ -23,7 +23,7 @@ import torch
 from PIL import Image
 
 from common import (
-    FRAME_MANIFEST_CSV, IMAGE_EXTS, KEY, PATIENT, PROCESSED_DIR,
+    FRAME_FEATS_CSV, FRAME_MANIFEST_CSV, IMAGE_EXTS, KEY, PATIENT,
     UNIQUE_VIDEO_MATCHES_CSV, VIDEO_MATCHES_CSV, ensure_dirs, natural_key,
 )
 
@@ -163,6 +163,7 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=0, help="处理的胚胎数（0 = 全量）")
     parser.add_argument("--stride", type=int, default=20, help="帧采样间隔")
     parser.add_argument("--regenerate", action="store_true", help="强制重新生成帧清单")
+    parser.add_argument("--out", default=str(FRAME_FEATS_CSV), help="帧级特征输出 CSV 路径")
     args = parser.parse_args()
 
     ensure_dirs()
@@ -183,8 +184,8 @@ def main() -> None:
 
     feats = extract_frame_feats(manifest, args.model, args.batch_size, device)
 
-    model_tag = args.model.replace("/", "_").replace("-", "_")
-    out_path = PROCESSED_DIR / f"frame_feats_{model_tag}.csv"
+    out_path = Path(args.out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     feats.to_csv(out_path, index=False)
     print(f"帧级特征已保存：{out_path}（{len(feats)} 行 x {feats.shape[1]} 列）")
 

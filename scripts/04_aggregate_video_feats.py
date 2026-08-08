@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 
 from common import (
-    FRAME_FEATS_CSV, KEY, PATIENT, VIDEO_FEATS_CSV, ensure_dirs,
+    FRAME_FEATS_CSV, KEY, PATIENT, PROCESSED_DIR, VIDEO_FEATS_CSV, ensure_dirs,
 )
 
 # 视频聚合特征的分组名（与 mean/std/delta/last 对应）
@@ -84,6 +84,15 @@ def main() -> None:
 
     ensure_dirs()
     feats_path = Path(args.feats)
+    if not feats_path.exists():
+        # 默认路径缺失时，自动探测 03 输出过的历史帧特征（取最新）
+        candidates = sorted(
+            PROCESSED_DIR.glob("frame_feats_*.csv"),
+            key=lambda p: p.stat().st_mtime, reverse=True,
+        )
+        if candidates:
+            feats_path = candidates[0]
+            print(f"默认路径 {Path(args.feats)} 不存在，自动使用最新帧特征：{feats_path}")
     if not feats_path.exists():
         raise FileNotFoundError(
             f"帧级特征不存在：{feats_path}\n请先运行 03_extract_frame_feats.py，"
