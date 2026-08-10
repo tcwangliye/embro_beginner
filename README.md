@@ -20,9 +20,9 @@
 
 ```
 embro_beginner/
-├── instruct.md            # 原始参考框架（仅参考，未照搬）
 ├── PLAN.md                # 执行计划
 ├── README.md              # 本文件
+├── requirements.txt       # 一键安装依赖（pip install -r requirements.txt）
 ├── data/
 │   ├── raw/               # 原始数据（手工放入：临床表 + 视频匹配表 + 帧目录）
 │   ├── processed/         # 中间产物（帧清单、帧/视频特征）
@@ -40,10 +40,11 @@ embro_beginner/
 ## 快速开始
 
 ```bash
-# 0. 安装依赖（表格建模必需）
-pip install pandas numpy scikit-learn catboost joblib
-# 视频建模必需（需 GPU）
-pip install torch torchvision transformers Pillow
+# 0. 一键安装全部依赖（表格 + 视频建模）
+pip install -r requirements.txt
+# 无 GPU 时先装 CPU 版 torch 再装其余依赖：
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# pip install -r requirements.txt
 
 # 1. 检查环境
 python scripts/00_check_environment.py
@@ -232,6 +233,8 @@ python scripts/06_report.py --metric-dir results/metrics
 
 ## 依赖清单
 
+一键安装：`pip install -r requirements.txt`（文件内已按表格/视频分组注释，含版本下限）。下表为各包用途说明：
+
 | 包 | 用途 | 必需阶段 |
 |---|---|---|
 | pandas / numpy | 表格处理 | 全部 |
@@ -240,6 +243,7 @@ python scripts/06_report.py --metric-dir results/metrics
 | joblib | pipeline 序列化 | 全部 |
 | Pillow | 帧图像加载 | 视频管线 |
 | torch | 深度学习后端 | 视频管线（需 GPU） |
+| torchvision | torch 配套（图像变换） | 视频管线（需 GPU） |
 | transformers | FEMI / ViT 加载 | 视频管线（需 GPU） |
 
 ## 常见问题
