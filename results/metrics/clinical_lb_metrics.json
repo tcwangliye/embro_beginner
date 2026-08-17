@@ -1,0 +1,56 @@
+{
+  "script": "05_train_fusion",
+  "tag": "clinical_lb",
+  "mode": "clinical",
+  "task": "lb",
+  "n_samples": 1589,
+  "n_patients": 1157,
+  "n_positive": 748,
+  "n_video_features": 0,
+  "pca_dim": 32,
+  "folds": 5,
+  "seed": 2026,
+  "iterations": 100,
+  "auroc": 0.578519333363007,
+  "auprc": 0.5312157985971128,
+  "fold_metrics": [
+    {
+      "auroc": 0.5921759828009827,
+      "auprc": 0.5664431050896296,
+      "fold": 0,
+      "n_valid": 324
+    },
+    {
+      "auroc": 0.5414830841856806,
+      "auprc": 0.5245720773342057,
+      "fold": 1,
+      "n_valid": 319
+    },
+    {
+      "auroc": 0.6015830574654103,
+      "auprc": 0.6003389799602177,
+      "fold": 2,
+      "n_valid": 307
+    },
+    {
+      "auroc": 0.6097969791705903,
+      "auprc": 0.4890814053997972,
+      "fold": 3,
+      "n_valid": 330
+    },
+    {
+      "auroc": 0.5600276567214214,
+      "auprc": 0.5328659459292535,
+      "fold": 4,
+      "n_valid": 309
+    }
+  ],
+  "audit": {
+    "input_rows": 1597,
+    "removed_bad_label": 5,
+    "duplicates_removed": 3,
+    "final_rows": 1589,
+    "n_patients": 1157,
+    "n_positive": 748
+  }
+}

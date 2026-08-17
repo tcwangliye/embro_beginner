@@ -1,0 +1,27 @@
+{
+  "clinical": {
+    "source": "/home/storage/wy/embro/data/cy0626/embryo_new/processed_0507_clinical/clinical_cleaned_full.csv",
+    "rows": 1597,
+    "columns": 128,
+    "n_patients": 1158,
+    "n_unique_keys": 1590,
+    "label_fh": {
+      "0.0": 828,
+      "1.0": 738,
+      "2.0": 25,
+      "nan": 5,
+      "3.0": 1
+    },
+    "label_lb": {
+      "0.0": 844,
+      "1.0": 748,
+      "nan": 5
+    },
+    "duplicate_keys": 4
+  },
+  "video": {
+    "n_matches": 16934,
+    "n_missing_dirs": 16934,
+    "all_dirs_missing": true
+  }
+}

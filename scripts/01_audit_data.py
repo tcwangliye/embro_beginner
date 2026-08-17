@@ -21,8 +21,9 @@ import numpy as np
 import pandas as pd
 
 from common import (
-    AUDIT_DIR, CLINICAL_CSV, IMAGE_EXTS, KEY, LABELS, PATIENT,
+    AUDIT_DIR, CLINICAL_CSV, FEMI_ROOT, IMAGE_EXTS, KEY, LABELS, PATIENT,
     TASKS, VIDEO_MATCHES_CSV, UNIQUE_VIDEO_MATCHES_CSV, ensure_dirs, natural_key,
+    remap_legacy_path,
 )
 
 
@@ -96,14 +97,22 @@ def audit_video(matches_path: Path | None) -> dict | None:
         print(f"        匹配表列：{list(m.columns)}")
         return {"n_matches": int(len(m))}
 
+    # manifest 内的目录列是旧机器绝对路径，先映射到本机
+    m["_dir"] = m[dir_col].map(remap_legacy_path)
+
     # 目录存在性校验
-    missing_dirs = [str(p) for p in m[dir_col] if not Path(p).exists()]
+    missing_dirs = [str(p) for p in m["_dir"] if not Path(p).exists()]
     print(f"胚胎目录：{len(m)} 个，磁盘缺失 {len(missing_dirs)} 个")
+    if missing_dirs and len(missing_dirs) == len(m):
+        print(f"[警告] 所有胚胎目录都不存在：{missing_dirs[0]}")
+        print(f"        提示：压缩包内 Timelapse_femi_processed 仅含 manifest/summary（symlink 模式），"
+              f"帧图像本体在 Timelapse_1246/（包内未包含）。")
+        return {"n_matches": int(len(m)), "n_missing_dirs": int(len(missing_dirs)), "all_dirs_missing": True}
 
     # 帧数统计（自然排序后统计图像文件数）
     records = []
     for row in m.itertuples(index=False):
-        d = Path(getattr(row, dir_col))
+        d = Path(row._dir)
         if not d.exists():
             records.append({"embryo_dir": str(d), "n_frames": 0})
             continue
@@ -113,6 +122,9 @@ def audit_video(matches_path: Path | None) -> dict | None:
         )
         records.append({"embryo_dir": str(d), "n_frames": len(frames)})
     stats = pd.DataFrame(records)
+    if stats.empty:
+        print("[警告] 无任何胚胎目录可统计（目录缺失或为空）")
+        return {"n_matches": int(len(m)), "n_missing_dirs": int(len(missing_dirs)), "no_frame_stats": True}
     stats.to_csv(AUDIT_DIR / "video_frame_stats.csv", index=False)
 
     summary = {

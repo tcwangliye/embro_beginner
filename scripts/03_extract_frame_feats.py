@@ -25,6 +25,7 @@ from PIL import Image
 from common import (
     FRAME_FEATS_CSV, FRAME_MANIFEST_CSV, IMAGE_EXTS, KEY, PATIENT,
     UNIQUE_VIDEO_MATCHES_CSV, VIDEO_MATCHES_CSV, ensure_dirs, natural_key,
+    remap_legacy_path,
 )
 
 
@@ -39,18 +40,32 @@ def resolve_matches_path() -> Path | None:
 
 
 def generate_frame_manifest(matches_path: Path, limit: int, stride: int) -> pd.DataFrame:
-    """扫描每个胚胎目录，按自然排序 + stride 采样生成帧清单。"""
+    """扫描每个胚胎目录，按自然排序 + stride 采样生成帧清单。
+
+    兼容两种匹配表结构：
+      - 旧结构：含 patient_embryo_key + embryo_dir 列
+      - manifest：含 patient_id / embryo_folder / processed_f0（无 KEY 列，需构造）
+    """
     m = pd.read_csv(matches_path)
     dir_col = next((c for c in ("embryo_dir", "processed_f0", "video_dir") if c in m.columns), None)
     if dir_col is None:
         raise ValueError(f"匹配表缺少胚胎目录列，实际列：{list(m.columns)}")
+
+    # manifest 的目录列是旧机器绝对路径 -> 重映射到本机
+    m["_dir"] = m[dir_col].map(remap_legacy_path)
+
+    # manifest 无 patient_embryo_key 列时，用 patient_id + embryo_folder 构造
+    if KEY not in m.columns:
+        print(f"[提示] 匹配表无 {KEY} 列，用 patient_id + embryo_folder 构造胚胎键")
+        id_col = "patient_id" if "patient_id" in m.columns else PATIENT
+        m[KEY] = m[id_col].astype(str).str.strip() + "__" + m["embryo_folder"].astype(str).str.strip()
 
     keys = m[KEY].unique()[:limit] if limit > 0 else m[KEY].unique()
     rows: list[dict] = []
     for row in m.itertuples(index=False):
         if getattr(row, KEY) not in keys:
             continue
-        d = Path(getattr(row, dir_col))
+        d = Path(row._dir)
         if not d.exists():
             print(f"  [跳过] 目录不存在：{d}")
             continue
@@ -58,18 +73,21 @@ def generate_frame_manifest(matches_path: Path, limit: int, stride: int) -> pd.D
             [p for p in d.rglob("*") if p.suffix.lower() in IMAGE_EXTS],
             key=lambda p: natural_key(p.name),
         )
+        if not frames:
+            print(f"  [跳过] 目录内无帧图像（symlink 目标缺失）：{d}")
+            continue
         sampled = frames[::stride]
         for idx, fp in enumerate(sampled):
             rows.append({
                 KEY: getattr(row, KEY),
-                PATIENT: getattr(row, "clean_patient_id", np.nan),
+                PATIENT: getattr(row, "clean_patient_id", getattr(row, "patient_id", np.nan)),
                 "frame_index": idx,
                 "frame_path": str(fp),
             })
     manifest = pd.DataFrame(rows)
     manifest = manifest.sort_values([KEY, "frame_index"]).reset_index(drop=True)
     manifest.to_csv(FRAME_MANIFEST_CSV, index=False)
-    print(f"帧清单已生成：{len(manifest)} 帧 / {manifest[KEY].nunique()} 胚胎 -> {FRAME_MANIFEST_CSV}")
+    print(f"帧清单已生成：{len(manifest)} 帧 / {manifest[KEY].nunique() if len(manifest) else 0} 胚胎 -> {FRAME_MANIFEST_CSV}")
     return manifest
 
 

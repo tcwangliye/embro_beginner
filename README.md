@@ -46,16 +46,16 @@ pip install -r requirements.txt
 # pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 # pip install -r requirements.txt
 
-# 1. 检查环境
+# 1. 检查环境（含真实数据就绪状态）
 python scripts/00_check_environment.py
 
-# 2. 把原始数据放入 data/raw/ 后审计
+# 2. 数据审计（临床表 + 视频 manifest）
 python scripts/01_audit_data.py
 
-# 3. 临床基线（先立下限）
+# 3. 临床基线（先立下限，当前唯一可跑的视频无关管线）
 python scripts/02_baseline_clinical.py --task lb
 
-# 4. 视频特征提取 → 聚合
+# 4. 视频特征提取 → 聚合（⚠️ 需帧图像，见下方“数据现状”）
 python scripts/03_extract_frame_feats.py --limit 10   # 先小样本试跑
 python scripts/04_aggregate_video_feats.py
 
@@ -68,19 +68,35 @@ python scripts/05_train_fusion.py --mode fusion   --task lb
 python scripts/06_report.py
 ```
 
-## 数据契约（重要）
+## 数据现状（真实数据已接入）
 
-脚本通过 `scripts/common.py` 统一管理列名约定，拿到真实数据后**只需修改这一个文件**：
+真实数据解压于 **`/home/storage/wy/embro`**（代码与数据分离），路径由 `scripts/common.py` 的 `EXT_DATA_ROOT` 统一管理：
+
+| 数据 | 位置 | 状态 |
+|---|---|---|
+| 临床主表 | `data/cy0626/embryo_new/processed_0507_clinical/clinical_cleaned_full.csv` | ✅ 1597 行×128 列 |
+| 标签冲突表 | `.../label_conflict_report.csv` | ✅ 存在 |
+| 视频匹配表 | `data/cy0626/embryo_new/Timelapse_femi_processed/femi_processed_manifest.csv` | ✅ 16934 条 |
+| FEMI 帧图像 | `.../Timelapse_femi_processed/**/F0/` | ⚠️ **缺失**：16934 个 F0 全为断开的符号链接（指向包内未含的 `Timelapse_1246/`） |
+| VaTEP 预训练权重 | `zcy/embryo_live2/experiments_0507_best_table/pretrain_pseudo/encoder.pth` | ✅ 25 MB |
+| VaTEP 视频缓存 | `.../video_cache_paper_12x48/` | ✅ 1332 个 `.npy`（19.2 GB） |
+
+> **结论**：表格管线（01/02/05-clinical/06）可直接运行；**帧特征管线（03/04/05-video/fusion）因帧图像缺失不可用**——若需视频建模，建议走 VaTEP 路线（`video_cache` 已就绪）。
+
+## 数据契约（已按真实表修正）
+
+`scripts/common.py` 集中管理列名约定与数据路径：
 
 | 常量 | 约定 | 说明 |
 |---|---|---|
-| `PATIENT` | `patient_id` | 患者 ID 列 |
-| `EMBRYO` | `embryo_no` | 胚胎号列（患者内唯一） |
-| `KEY` | `patient_embryo_key` | 患者-胚胎唯一键（脚本自动构造） |
-| `LABELS` | `{"fh": "FH", "lb": "LB"}` | 任务名 → 标签列名 |
-| `CLINICAL_FEATURES` | 占位列表 | **按真实临床表修正** |
+| `PATIENT` | `clean_patient_id` | 患者 ID 列（如 `'140592'`） |
+| `EMBRYO` | `clean_embryo_no` | 胚胎号列（患者内唯一，如 `'6.3'`） |
+| `KEY` | `patient_embryo_key` | 患者-胚胎唯一键（表内已有，如 `'140592__6.3'`） |
+| `LABELS` | `{"fh": "clean_fetal_heartbeat_label", "lb": "clean_live_birth_label"}` | 任务名 → 标签列名 |
+| `CLINICAL_FEATURES` | 10 个 `clean_` 前缀列 | 女/男年龄、不孕年限、BMI、FSH、LH、E2、AMH、Gn 总量、内膜厚度 |
+| `EXT_DATA_ROOT` | `/home/storage/wy/embro` | 外部数据根目录（改机器只需改这一处） |
 
-视频匹配表需含胚胎目录列（`embryo_dir` / `processed_f0` / `video_dir` 任一即可），脚本自动兼容。
+视频匹配表需含胚胎目录列（`embryo_dir` / `processed_f0` / `video_dir` 任一即可）；manifest 内旧机器绝对路径会自动重映射（`remap_legacy_path`）。
 
 ---
 

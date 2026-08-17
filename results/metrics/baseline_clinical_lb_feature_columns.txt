@@ -1,0 +1,10 @@
+clean_女年龄
+clean_男年龄
+clean_不孕年限
+clean_BMI
+clean_基础FSH
+clean_基础LH
+clean_基础E2
+clean_AMH
+clean_Gn总量
+clean_转内膜日内膜厚度

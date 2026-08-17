@@ -105,6 +105,13 @@ def run_fusion(
 ) -> dict:
     """运行指定模式的五折建模，返回指标摘要。"""
     clinical_features = list(CLINICAL_FEATURES)
+    if mode != "clinical" and not video_feats_path.exists():
+        raise FileNotFoundError(
+            f"视频特征不存在：{video_feats_path}\n"
+            f"提示：压缩包内 Timelapse_femi_processed 为 symlink 模式（帧本体未包含），"
+            f"03/04 帧特征管线无法生成该文件。\n"
+            f"当前仅 clinical 模式可用；视频建模请改用 VaTEP（video_cache 已解压就绪）。"
+        )
     video_feats, video_feat_cols = (load_video_feats(video_feats_path)
                                     if mode != "clinical" else (None, []))
 

@@ -1,0 +1,3 @@
+tag,script,mode,task,n_samples,n_patients,n_positive,n_matched_video,auroc,auprc,folds,seed,metric_file
+baseline_clinical_lb,02_baseline_clinical,,lb,1589,1157,748,,0.578519333363007,0.5312157985971128,5,2026,baseline_clinical_lb_metrics.json
+clinical_lb,05_train_fusion,clinical,lb,1589,1157,748,,0.578519333363007,0.5312157985971128,5,2026,clinical_lb_metrics.json

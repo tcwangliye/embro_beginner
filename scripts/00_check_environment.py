@@ -62,14 +62,29 @@ def check_gpu() -> dict:
 
 
 def check_data_ready() -> list[str]:
-    """报告 data/ 目录就绪状态（信息性，不判失败）。"""
+    """报告真实数据就绪状态（信息性，不判失败）。"""
+    from common import (
+        CLINICAL_CSV, CONFLICT_CSV, FEMI_ROOT, PRETRAINED_PTH,
+        VIDEO_CACHE_DIR, VIDEO_MATCHES_CSV,
+    )
     notes = []
-    raw = Path(__file__).resolve().parents[1] / "data" / "raw"
-    if not raw.exists():
-        notes.append(f"data/raw/ 不存在（{raw}），请先创建并放入原始数据")
+    for name, p in [
+        ("临床主表", CLINICAL_CSV),
+        ("标签冲突表", CONFLICT_CSV),
+        ("视频匹配表(manifest)", VIDEO_MATCHES_CSV),
+        ("VaTEP 预训练权重", PRETRAINED_PTH),
+        ("VaTEP 视频缓存", VIDEO_CACHE_DIR),
+    ]:
+        ok = p.exists()
+        notes.append(f"{'✅' if ok else '❌'} {name}: {p}" + ("" if ok else "（缺失）"))
+
+    # 帧图像可用性：FEMI_ROOT 下应有 .jpg/.png 帧
+    n_frames = sum(1 for _ in FEMI_ROOT.rglob("*") if _.suffix.lower() in {".jpg", ".jpeg", ".png"}) if FEMI_ROOT.exists() else 0
+    if n_frames:
+        notes.append(f"✅ FEMI 帧图像：{FEMI_ROOT}（约 {n_frames} 帧）")
     else:
-        files = sorted(p.name for p in raw.iterdir() if p.is_file())
-        notes.append(f"data/raw/ 内有 {len(files)} 个文件：{', '.join(files) if files else '（空）'}")
+        notes.append(f"❌ FEMI 帧图像：{FEMI_ROOT} 下无 .jpg/.png（压缩包内为 symlink 模式，帧本体未包含）")
+        notes.append("   → 03/04 帧特征管线不可用；若需视频建模，建议改用 VaTEP（video_cache 已在）")
     return notes
 
 

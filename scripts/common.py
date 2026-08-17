@@ -34,31 +34,62 @@ METRIC_DIR = RESULTS_DIR / "metrics"
 AUDIT_DIR = RESULTS_DIR / "audit"
 LOGS_DIR = PROJECT_ROOT / "logs"
 
-# 默认原始数据路径（文件名按真实数据替换）
-CLINICAL_CSV = RAW_DIR / "clinical_table.csv"
-VIDEO_MATCHES_CSV = RAW_DIR / "video_matches.csv"            # 胚胎 -> 视频目录 匹配表
-UNIQUE_VIDEO_MATCHES_CSV = RAW_DIR / "unique_video_matches.csv"  # 兼容旧命名
+# ------------------------------------------------------------
+# 外部数据根目录（解压位置，与项目代码分离）
+# ------------------------------------------------------------
+EXT_DATA_ROOT = Path("/home/storage/wy/embro")   # embryo_all_data.tgz 解压根目录
+EMBRYO_NEW = EXT_DATA_ROOT / "data" / "cy0626" / "embryo_new"
+CLINICAL_DIR = EMBRYO_NEW / "processed_0507_clinical"   # 临床主表 + 标签冲突表
+FEMI_ROOT = EMBRYO_NEW / "Timelapse_femi_processed"     # FEMI 处理后帧目录（含 manifest）
+TIMELAPSE_ROOT = EMBRYO_NEW / "Timelapse_1246"          # 原始延时帧（包内缺失，symlink 目标）
+VATEP_DIR = EXT_DATA_ROOT / "zcy" / "embryo_live2" / "experiments_0507_best_table"
+VIDEO_CACHE_DIR = VATEP_DIR / "video_cache_paper_12x48"  # VaTEP 训练缓存（1332 个 .npy）
+PRETRAINED_PTH = VATEP_DIR / "pretrain_pseudo" / "encoder.pth"  # VaTEP 预训练编码器
+
+# 默认数据路径（按真实数据修正）
+CLINICAL_CSV = CLINICAL_DIR / "clinical_cleaned_full.csv"
+CONFLICT_CSV = CLINICAL_DIR / "label_conflict_report.csv"      # 标签冲突样本（VaTEP 用）
+VIDEO_MATCHES_CSV = FEMI_ROOT / "femi_processed_manifest.csv"  # 胚胎 -> 视频目录 匹配表
+UNIQUE_VIDEO_MATCHES_CSV = VIDEO_MATCHES_CSV                    # 兼容旧命名（真实数据只有 manifest）
 
 # 中间产物路径
 FRAME_MANIFEST_CSV = PROCESSED_DIR / "frame_manifest.csv"
 FRAME_FEATS_CSV = PROCESSED_DIR / "frame_feats.csv"     # 帧级特征（03 输出）
 VIDEO_FEATS_CSV = PROCESSED_DIR / "video_feats.csv"     # 视频级特征（04 输出）
 
+
+def remap_legacy_path(p: str) -> str:
+    """把旧机器绝对路径（/home/data/cy0626/embryo_new/...）映射到当前机器。
+
+    压缩包内 manifest / 匹配表的目录列是源机器绝对路径，本机解压后
+    需要把前缀替换为本机实际位置。
+    """
+    old_root = "/home/data/cy0626/embryo_new"
+    if old_root in str(p):
+        return str(p).replace(old_root, str(EMBRYO_NEW))
+    return str(p)
+
 # ============================================================
-# 数据契约（列名约定）
+# 数据契约（列名约定，按真实临床表修正）
 # ============================================================
-PATIENT = "patient_id"            # 患者 ID 列
-EMBRYO = "embryo_no"              # 胚胎号列（患者内唯一）
-KEY = "patient_embryo_key"        # 患者-胚胎唯一键（由脚本自动构造）
-LABELS = {"fh": "FH", "lb": "LB"}  # 任务名 -> 标签列名
+PATIENT = "clean_patient_id"            # 患者 ID 列（清洗后，如 '140592'）
+EMBRYO = "clean_embryo_no"              # 胚胎号列（患者内唯一，如 '6.3'）
+KEY = "patient_embryo_key"              # 患者-胚胎唯一键（表内已有，如 '140592__6.3'）
+LABELS = {"fh": "clean_fetal_heartbeat_label", "lb": "clean_live_birth_label"}  # 任务名 -> 标签列名
 TASKS = tuple(LABELS)
 
-# 移植前可获得的临床数值特征（10 个左右，按真实临床表修正列名/增删）
+# 移植前可获得的临床数值特征（10 个，全部来自清洗后列）
 CLINICAL_FEATURES = [
-    "age", "bmi",
-    "basal_fsh", "basal_lh", "basal_e2", "amh",
-    "gn_total", "endometrial_thickness",
-    # TODO: 按真实临床表补齐剩余列名
+    "clean_女年龄",        # age
+    "clean_男年龄",        # male age
+    "clean_不孕年限",      # infertility years
+    "clean_BMI",
+    "clean_基础FSH",
+    "clean_基础LH",
+    "clean_基础E2",
+    "clean_AMH",
+    "clean_Gn总量",
+    "clean_转内膜日内膜厚度",
 ]
 
 # 帧图像扩展名
@@ -113,8 +144,9 @@ def load_cohort(
     df = df[df[PATIENT].astype(str).str.strip() != ""]
     df = df[df[EMBRYO].astype(str).str.strip() != ""]
 
-    # 构造患者-胚胎唯一键，并按 KEY 去重（保留首条）
-    df[KEY] = df[PATIENT].astype(str).str.strip() + "_" + df[EMBRYO].astype(str).str.strip()
+    # 患者-胚胎唯一键：表内已有则直接用（真实数据为 '140592__6.3'），否则构造
+    if KEY not in df.columns:
+        df[KEY] = df[PATIENT].astype(str).str.strip() + "__" + df[EMBRYO].astype(str).str.strip()
     n1 = len(df)
     df = df.drop_duplicates(subset=KEY, keep="first")
     audit["duplicates_removed"] = n1 - len(df)
